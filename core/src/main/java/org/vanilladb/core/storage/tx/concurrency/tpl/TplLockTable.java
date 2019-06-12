@@ -131,6 +131,7 @@ class TplLockTable {
 			1000);
 	private final Object anchors[] = new Object[1009];
 	private Map<Object, PriorityQueue<TxMLF>> objectWaitThreadMap = new ConcurrentHashMap< >();
+	private Map<Long, Integer> lockNumberMap = new ConcurrentHashMap<Long, Integer>();
 
 	public TplLockTable() {
 		for (int i = 0; i < anchors.length; ++i) {
@@ -148,43 +149,12 @@ class TplLockTable {
 	}
 	
 	private int CalcLocks(Long txNum) {
-		Set<Object> objects = lockByMap.get(txNum);
-		int counter = 0;
-		
-		if (objects == null) {
+		if (lockNumberMap.get(txNum) == null) {
+			lockNumberMap.put(txNum, 0);
 			return 0;
 		}
 		
-		for (Object obj : objects) {
-			Lockers lockers = lockerMap.get(obj);
-			
-			if (lockers != null) {
-				for (Long tx : lockers.sLockers) {
-					if (tx == txNum)
-						counter++;
-				}
-				
-				for (Long tx : lockers.isLockers) {
-					if (tx == txNum)
-						counter++;
-				}
-				
-				for (Long tx : lockers.ixLockers) {
-					if (tx == txNum)
-						counter++;
-				}
-				
-				if (lockers.sixLocker == txNum) {
-					counter++;
-				}
-				
-				if (lockers.xLocker == txNum) {
-					counter++;
-				}
-			}
-		}
-		
-		return counter;
+		return lockNumberMap.get(txNum);
 	}
 
 	private void avoidDeadlock(Lockers lks, long txNum, int lockType)
@@ -291,6 +261,7 @@ class TplLockTable {
 					throw new LockAbortException();
 				lks.sLockers.add(txNum);
 				getObjectSet(txNum).add(obj);
+				lockNumberMap.put(txNum, locks + 1);
 			} catch (InterruptedException e) {
 				throw new LockAbortException("abort tx." + txNum + " by interrupted");
 			}
@@ -354,6 +325,7 @@ class TplLockTable {
 					throw new LockAbortException();
 				lks.xLocker = txNum;
 				getObjectSet(txNum).add(obj);
+				lockNumberMap.put(txNum, locks + 1);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
 			}
@@ -415,6 +387,7 @@ class TplLockTable {
 					throw new LockAbortException();
 				lks.sixLocker = txNum;
 				getObjectSet(txNum).add(obj);
+				lockNumberMap.put(txNum, locks + 1);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
 			}
@@ -473,6 +446,7 @@ class TplLockTable {
 					throw new LockAbortException();
 				lks.isLockers.add(txNum);
 				getObjectSet(txNum).add(obj);
+				lockNumberMap.put(txNum, locks + 1);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
 			}
@@ -534,6 +508,7 @@ class TplLockTable {
 					throw new LockAbortException();
 				lks.ixLockers.add(txNum);
 				getObjectSet(txNum).add(obj);
+				lockNumberMap.put(txNum, locks + 1);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
 			}
