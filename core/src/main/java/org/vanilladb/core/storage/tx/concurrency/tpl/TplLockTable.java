@@ -114,7 +114,11 @@ class TplLockTable {
 		
 		@Override
 		public int compareTo(TxMLF tx) {
-			return this.locks - tx.locks;
+			
+			if (this.txNum > tx.txNum) {
+				return 1;				
+			}
+			return -1;
 		}
 		
 		public long getTxNum() {
