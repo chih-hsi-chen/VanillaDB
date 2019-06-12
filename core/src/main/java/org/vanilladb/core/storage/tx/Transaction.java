@@ -46,7 +46,7 @@ public class Transaction {
 	 * the file, log, and buffer managers from {@link VanillaDb}, which are
 	 * created during system initialization. Thus this constructor cannot be
 	 * called until {@link VanillaDb#init(String)} is called first.
-	 * 
+	 *
 	 * @param txMgr
 	 *            the transaction manager
 	 * @param concurMgr

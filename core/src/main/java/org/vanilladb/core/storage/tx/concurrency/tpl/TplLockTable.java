@@ -16,12 +16,17 @@
 package org.vanilladb.core.storage.tx.concurrency.tpl;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.PriorityQueue;
 
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.server.task.Task;
@@ -97,6 +102,25 @@ class TplLockTable {
 			}
 		}
 	}
+	
+	class TxMLF implements Comparable<TxMLF> {
+		long txNum;
+		int locks;
+		
+		TxMLF(long txNum, int locks) {
+			this.txNum = txNum;
+			this.locks = locks;
+		}
+		
+		@Override
+		public int compareTo(TxMLF tx) {
+			return this.locks - tx.locks;
+		}
+		
+		public long getTxNum() {
+			return this.txNum;
+		}
+	}
 
 	private Map<Object, Lockers> lockerMap = new ConcurrentHashMap<Object, Lockers>();
 	private Map<Long, Set<Object>> lockByMap = new ConcurrentHashMap<Long, Set<Object>>();
@@ -106,6 +130,7 @@ class TplLockTable {
 	private BlockingQueue<Long> toBeNotified = new ArrayBlockingQueue<Long>(
 			1000);
 	private final Object anchors[] = new Object[1009];
+	private Map<Object, PriorityQueue<TxMLF>> objectWaitThreadMap = new ConcurrentHashMap< >();
 
 	public TplLockTable() {
 		for (int i = 0; i < anchors.length; ++i) {
@@ -120,6 +145,46 @@ class TplLockTable {
 			code += anchors.length;
 		}
 		return anchors[code];
+	}
+	
+	private int CalcLocks(Long txNum) {
+		Set<Object> objects = lockByMap.get(txNum);
+		int counter = 0;
+		
+		if (objects == null) {
+			return 0;
+		}
+		
+		for (Object obj : objects) {
+			Lockers lockers = lockerMap.get(obj);
+			
+			if (lockers != null) {
+				for (Long tx : lockers.sLockers) {
+					if (tx == txNum)
+						counter++;
+				}
+				
+				for (Long tx : lockers.isLockers) {
+					if (tx == txNum)
+						counter++;
+				}
+				
+				for (Long tx : lockers.ixLockers) {
+					if (tx == txNum)
+						counter++;
+				}
+				
+				if (lockers.sixLocker == txNum) {
+					counter++;
+				}
+				
+				if (lockers.xLocker == txNum) {
+					counter++;
+				}
+			}
+		}
+		
+		return counter;
 	}
 
 	private void avoidDeadlock(Lockers lks, long txNum, int lockType)
@@ -194,13 +259,34 @@ class TplLockTable {
 
 			try {
 				long timestamp = System.currentTimeMillis();
-				while (!sLockable(lks, txNum) && !waitingTooLong(timestamp)) {
+				boolean isSuccess = false;
+				int locks = CalcLocks(txNum);
+				TxMLF txMLF = new TxMLF(txNum, locks);
+				PriorityQueue<TxMLF> pQueue;
+				
+				if (objectWaitThreadMap.get(anchor) == null) {
+					pQueue = new PriorityQueue<TxMLF>();
+					
+					objectWaitThreadMap.put(anchor, pQueue);
+				} else {
+					pQueue = objectWaitThreadMap.get(anchor);
+				}				
+				pQueue.add(txMLF);
+				
+				while (!sLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, S_LOCK);
 					lks.requestSet.add(txNum);
-					
+
 					anchor.wait(MAX_TIME);
+					
+					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
+						isSuccess = true;
+					}
 					lks.requestSet.remove(txNum);
 				}
+				
+				objectWaitThreadMap.get(anchor).remove(txMLF);
+				
 				if (!sLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.sLockers.add(txNum);
@@ -235,13 +321,35 @@ class TplLockTable {
 
 			try {
 				long timestamp = System.currentTimeMillis();
-				while (!xLockable(lks, txNum) && !waitingTooLong(timestamp)) {
+				boolean isSuccess = false;
+				int locks = CalcLocks(txNum);
+				TxMLF txMLF = new TxMLF(txNum, locks);
+				PriorityQueue<TxMLF> pQueue;
+				
+				if (objectWaitThreadMap.get(anchor) == null) {
+					pQueue = new PriorityQueue<TxMLF>();
+					
+					objectWaitThreadMap.put(anchor, pQueue);
+				} else {
+					pQueue = objectWaitThreadMap.get(anchor);
+				}				
+				pQueue.add(txMLF);
+				
+				
+				while (!xLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, X_LOCK);
 					lks.requestSet.add(txNum);
 					
 					anchor.wait(MAX_TIME);
+					
+					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
+						isSuccess = true;
+					}
 					lks.requestSet.remove(txNum);
 				}
+				
+				objectWaitThreadMap.get(anchor).remove(txMLF);
+				
 				if (!xLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.xLocker = txNum;
@@ -276,13 +384,33 @@ class TplLockTable {
 
 			try {
 				long timestamp = System.currentTimeMillis();
-				while (!sixLockable(lks, txNum) && !waitingTooLong(timestamp)) {
+				boolean isSuccess = false;
+				int locks = CalcLocks(txNum);
+				TxMLF txMLF = new TxMLF(txNum, locks);
+				PriorityQueue<TxMLF> pQueue;
+				
+				if (objectWaitThreadMap.get(anchor) == null) {
+					pQueue = new PriorityQueue<TxMLF>();
+					
+					objectWaitThreadMap.put(anchor, pQueue);
+				} else {
+					pQueue = objectWaitThreadMap.get(anchor);
+				}				
+				pQueue.add(txMLF);
+				
+				while (!sixLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, SIX_LOCK);
 					lks.requestSet.add(txNum);
 					
 					anchor.wait(MAX_TIME);
+					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
+						isSuccess = true;
+					}
 					lks.requestSet.remove(txNum);
 				}
+				
+				objectWaitThreadMap.get(anchor).remove(txMLF);
+				
 				if (!sixLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.sixLocker = txNum;
@@ -314,13 +442,33 @@ class TplLockTable {
 				return;
 			try {
 				long timestamp = System.currentTimeMillis();
-				while (!isLockable(lks, txNum) && !waitingTooLong(timestamp)) {
+				boolean isSuccess = false;
+				int locks = CalcLocks(txNum);
+				TxMLF txMLF = new TxMLF(txNum, locks);
+				PriorityQueue<TxMLF> pQueue;
+				
+				if (objectWaitThreadMap.get(anchor) == null) {
+					pQueue = new PriorityQueue<TxMLF>();
+					
+					objectWaitThreadMap.put(anchor, pQueue);
+				} else {
+					pQueue = objectWaitThreadMap.get(anchor);
+				}				
+				pQueue.add(txMLF);
+				
+				while (!isLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, IS_LOCK);
 					lks.requestSet.add(txNum);
 					
 					anchor.wait(MAX_TIME);
+					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
+						isSuccess = true;
+					}
 					lks.requestSet.remove(txNum);
 				}
+				
+				objectWaitThreadMap.get(anchor).remove(txMLF);
+				
 				if (!isLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.isLockers.add(txNum);
@@ -354,13 +502,34 @@ class TplLockTable {
 
 			try {
 				long timestamp = System.currentTimeMillis();
-				while (!ixLockable(lks, txNum) && !waitingTooLong(timestamp)) {
+				boolean isSuccess = false;
+				int locks = CalcLocks(txNum);
+				TxMLF txMLF = new TxMLF(txNum, locks);
+				PriorityQueue<TxMLF> pQueue;
+				
+				if (objectWaitThreadMap.get(anchor) == null) {
+					pQueue = new PriorityQueue<TxMLF>();
+					
+					objectWaitThreadMap.put(anchor, pQueue);
+				} else {
+					pQueue = objectWaitThreadMap.get(anchor);
+				}				
+				pQueue.add(txMLF);
+				
+				
+				while (!ixLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, IX_LOCK);
 					lks.requestSet.add(txNum);
 					
 					anchor.wait(MAX_TIME);
+					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
+						isSuccess = true;
+					}
 					lks.requestSet.remove(txNum);
 				}
+				
+				objectWaitThreadMap.get(anchor).remove(txMLF);
+				
 				if (!ixLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.ixLockers.add(txNum);
