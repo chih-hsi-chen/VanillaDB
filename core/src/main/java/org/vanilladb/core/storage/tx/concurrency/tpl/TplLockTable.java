@@ -131,7 +131,8 @@ class TplLockTable {
 			1000);
 	private final Object anchors[] = new Object[1009];
 	private Map<Object, PriorityQueue<TxMLF>> objectWaitThreadMap = new ConcurrentHashMap< >();
-
+	private Map<Object, Boolean> Blocks = new ConcurrentHashMap< >();
+	
 	public TplLockTable() {
 		for (int i = 0; i < anchors.length; ++i) {
 			anchors[i] = new Object();
@@ -160,26 +161,28 @@ class TplLockTable {
 			
 			if (lockers != null) {
 				for (Long tx : lockers.sLockers) {
-					if (tx == txNum)
+					if (tx == txNum && Blocks.get(obj)==true)
 						counter++;
 				}
 				
 				for (Long tx : lockers.isLockers) {
-					if (tx == txNum)
+					if (tx == txNum && Blocks.get(obj)==true)
 						counter++;
 				}
 				
 				for (Long tx : lockers.ixLockers) {
-					if (tx == txNum)
+					if (tx == txNum && Blocks.get(obj)==true)
 						counter++;
 				}
 				
-				if (lockers.sixLocker == txNum) {
+				if (lockers.sixLocker == txNum && Blocks.get(obj)==true) {
 					counter++;
 				}
 				
-				if (lockers.xLocker == txNum) {
-					counter++;
+				if (lockers.xLocker == txNum ) {
+					if(Blocks.get(obj) != null)
+						if(Blocks.get(obj)==true)
+							counter++;
 				}
 			}
 		}
@@ -276,11 +279,17 @@ class TplLockTable {
 				while (!sLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, S_LOCK);
 					lks.requestSet.add(txNum);
-
+					if(Blocks.get(anchor) ==  false)
+					{
+						Blocks.put(obj,true);
+					}
+					
+			
 					anchor.wait(MAX_TIME);
 					
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
+						Blocks.put(obj,false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -290,6 +299,7 @@ class TplLockTable {
 				if (!sLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.sLockers.add(txNum);
+				Blocks.put(obj,false);
 				getObjectSet(txNum).add(obj);
 			} catch (InterruptedException e) {
 				throw new LockAbortException("abort tx." + txNum + " by interrupted");
@@ -339,11 +349,15 @@ class TplLockTable {
 				while (!xLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, X_LOCK);
 					lks.requestSet.add(txNum);
-					
+					if(Blocks.get(anchor) ==  false)
+					{
+						Blocks.put(obj,true);
+					}
 					anchor.wait(MAX_TIME);
 					
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
+						Blocks.put(obj, false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -353,6 +367,7 @@ class TplLockTable {
 				if (!xLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.xLocker = txNum;
+				Blocks.put(obj,false);
 				getObjectSet(txNum).add(obj);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
@@ -401,10 +416,14 @@ class TplLockTable {
 				while (!sixLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, SIX_LOCK);
 					lks.requestSet.add(txNum);
-					
+					if(Blocks.get(anchor) ==  false)
+					{
+						Blocks.put(obj,true);
+					}
 					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
+						Blocks.put(obj, false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -414,6 +433,7 @@ class TplLockTable {
 				if (!sixLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.sixLocker = txNum;
+				Blocks.put(obj,false);
 				getObjectSet(txNum).add(obj);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
@@ -459,10 +479,14 @@ class TplLockTable {
 				while (!isLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, IS_LOCK);
 					lks.requestSet.add(txNum);
-					
+					if(Blocks.get(anchor) ==  false)
+					{
+						Blocks.put(obj,true);
+					}
 					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
+						Blocks.put(obj, false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -472,6 +496,7 @@ class TplLockTable {
 				if (!isLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.isLockers.add(txNum);
+				Blocks.put(obj,false);
 				getObjectSet(txNum).add(obj);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
@@ -522,8 +547,14 @@ class TplLockTable {
 					lks.requestSet.add(txNum);
 					
 					anchor.wait(MAX_TIME);
+					if(Blocks.get(anchor) ==  false)
+					{
+						Blocks.put(obj,true);
+					}
+					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
+						Blocks.put(obj, false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -533,6 +564,7 @@ class TplLockTable {
 				if (!ixLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.ixLockers.add(txNum);
+				Blocks.put(obj,false);
 				getObjectSet(txNum).add(obj);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
@@ -575,7 +607,11 @@ class TplLockTable {
 					if (!sLocked(lks) && !xLocked(lks) && !sixLocked(lks)
 							&& !isLocked(lks) && !ixLocked(lks)
 							&& lks.requestSet.isEmpty())
+					{
 						lockerMap.remove(obj);
+						Blocks.remove(obj);
+					}
+						
 				}
 			}
 		}
