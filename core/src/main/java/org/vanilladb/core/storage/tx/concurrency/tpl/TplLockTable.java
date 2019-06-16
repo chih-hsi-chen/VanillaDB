@@ -132,6 +132,8 @@ class TplLockTable {
 	private final Object anchors[] = new Object[1009];
 	private Map<Object, PriorityQueue<TxMLF>> objectWaitThreadMap = new ConcurrentHashMap< >();
 	private Map<Object, Boolean> Blocks = new ConcurrentHashMap< >();
+	private Map<Long, Integer> TxBlockingLock = new ConcurrentHashMap<Long, Integer>();
+	private Map<Object, Long> FirstLockOwner = new ConcurrentHashMap<Object, Long>();
 	
 	public TplLockTable() {
 		for (int i = 0; i < anchors.length; ++i) {
@@ -149,45 +151,12 @@ class TplLockTable {
 	}
 	
 	private int CalcLocks(Long txNum) {
-		Set<Object> objects = lockByMap.get(txNum);
-		int counter = 0;
-		
-		if (objects == null) {
+		if (TxBlockingLock.get(txNum) == null) {
+			TxBlockingLock.put(txNum, 0);
 			return 0;
 		}
 		
-		for (Object obj : objects) {
-			Lockers lockers = lockerMap.get(obj);
-			
-			if (lockers != null) {
-				for (Long tx : lockers.sLockers) {
-					if (tx == txNum && Blocks.get(obj)==true)
-						counter++;
-				}
-				
-				for (Long tx : lockers.isLockers) {
-					if (tx == txNum && Blocks.get(obj)==true)
-						counter++;
-				}
-				
-				for (Long tx : lockers.ixLockers) {
-					if (tx == txNum && Blocks.get(obj)==true)
-						counter++;
-				}
-				
-				if (lockers.sixLocker == txNum && Blocks.get(obj)==true) {
-					counter++;
-				}
-				
-				if (lockers.xLocker == txNum ) {
-					if(Blocks.get(obj) != null)
-						if(Blocks.get(obj)==true)
-							counter++;
-				}
-			}
-		}
-		
-		return counter;
+		return TxBlockingLock.get(txNum);
 	}
 
 	private void avoidDeadlock(Lockers lks, long txNum, int lockType)
@@ -256,7 +225,7 @@ class TplLockTable {
 		txWaitMap.put(txNum, anchor);
 		synchronized (anchor) {
 			Lockers lks = prepareLockers(obj);
-
+			
 			if (hasSLock(lks, txNum))
 				return;
 
@@ -279,9 +248,15 @@ class TplLockTable {
 				while (!sLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, S_LOCK);
 					lks.requestSet.add(txNum);
-					if(Blocks.get(anchor) ==  false)
-					{
-						Blocks.put(obj,true);
+					if (Blocks.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}
 					}
 					
 			
@@ -289,7 +264,6 @@ class TplLockTable {
 					
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
-						Blocks.put(obj,false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -299,8 +273,13 @@ class TplLockTable {
 				if (!sLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.sLockers.add(txNum);
-				Blocks.put(obj,false);
+				Blocks.put(obj, false);
 				getObjectSet(txNum).add(obj);
+				
+				if (FirstLockOwner.get(obj) == null) {
+					FirstLockOwner.put(obj, txNum);
+				}
+				
 			} catch (InterruptedException e) {
 				throw new LockAbortException("abort tx." + txNum + " by interrupted");
 			}
@@ -349,15 +328,22 @@ class TplLockTable {
 				while (!xLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, X_LOCK);
 					lks.requestSet.add(txNum);
-					if(Blocks.get(anchor) ==  false)
-					{
-						Blocks.put(obj,true);
-					}
+					
+					if (Blocks.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}
+					}					
+					
 					anchor.wait(MAX_TIME);
 					
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
-						Blocks.put(obj, false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -367,7 +353,7 @@ class TplLockTable {
 				if (!xLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.xLocker = txNum;
-				Blocks.put(obj,false);
+				Blocks.put(obj, false);
 				getObjectSet(txNum).add(obj);
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
@@ -416,14 +402,19 @@ class TplLockTable {
 				while (!sixLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, SIX_LOCK);
 					lks.requestSet.add(txNum);
-					if(Blocks.get(anchor) ==  false)
-					{
-						Blocks.put(obj,true);
+					if (Blocks.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}
 					}
 					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
-						Blocks.put(obj, false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -479,14 +470,19 @@ class TplLockTable {
 				while (!isLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, IS_LOCK);
 					lks.requestSet.add(txNum);
-					if(Blocks.get(anchor) ==  false)
-					{
-						Blocks.put(obj,true);
+					if (Blocks.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}
 					}
 					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
-						Blocks.put(obj, false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -547,14 +543,19 @@ class TplLockTable {
 					lks.requestSet.add(txNum);
 					
 					anchor.wait(MAX_TIME);
-					if(Blocks.get(anchor) ==  false)
-					{
-						Blocks.put(obj,true);
+					if (Blocks.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}
 					}
 					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
-						Blocks.put(obj, false);
 					}
 					lks.requestSet.remove(txNum);
 				}
@@ -610,6 +611,7 @@ class TplLockTable {
 					{
 						lockerMap.remove(obj);
 						Blocks.remove(obj);
+						FirstLockOwner.remove(obj);
 					}
 						
 				}
@@ -658,6 +660,9 @@ class TplLockTable {
 							&& lks.requestSet.isEmpty())
 						lockerMap.remove(obj);
 				}
+				
+				Blocks.remove(obj);
+				FirstLockOwner.remove(obj);
 			}
 		}
 		txWaitMap.remove(txNum);
