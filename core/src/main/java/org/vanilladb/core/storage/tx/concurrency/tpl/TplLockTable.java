@@ -248,18 +248,15 @@ class TplLockTable {
 				while (!sLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, S_LOCK);
 					lks.requestSet.add(txNum);
-					if (Blocks.get(obj) != null) {
-						if(Blocks.get(obj) ==  false)
-						{
-							Long txOwner = FirstLockOwner.get(obj);
-							int oldVal = TxBlockingLock.get(txOwner);
-							
-							Blocks.put(obj, true);
-							TxBlockingLock.put(txOwner, oldVal + 1);
-						}
-					}
 					
-			
+					if(Blocks.get(obj) ==  false)
+					{
+						Long txOwner = FirstLockOwner.get(obj);
+						int oldVal = TxBlockingLock.get(txOwner);
+						
+						Blocks.put(obj, true);
+						TxBlockingLock.put(txOwner, oldVal + 1);
+					}					
 					anchor.wait(MAX_TIME);
 					
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
@@ -273,8 +270,11 @@ class TplLockTable {
 				if (!sLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.sLockers.add(txNum);
-				Blocks.put(obj, false);
 				getObjectSet(txNum).add(obj);
+				
+				if (Blocks.get(obj) == null) {
+					Blocks.put(obj, false);
+				}
 				
 				if (FirstLockOwner.get(obj) == null) {
 					FirstLockOwner.put(obj, txNum);
@@ -329,16 +329,15 @@ class TplLockTable {
 					avoidDeadlock(lks, txNum, X_LOCK);
 					lks.requestSet.add(txNum);
 					
-					if (Blocks.get(obj) != null) {
-						if(Blocks.get(obj) ==  false)
-						{
-							Long txOwner = FirstLockOwner.get(obj);
-							int oldVal = TxBlockingLock.get(txOwner);
-							
-							Blocks.put(obj, true);
-							TxBlockingLock.put(txOwner, oldVal + 1);
-						}
-					}					
+					if(Blocks.get(obj) ==  false)
+					{
+						Long txOwner = FirstLockOwner.get(obj);
+						int oldVal = TxBlockingLock.get(txOwner);
+						
+						Blocks.put(obj, true);
+						TxBlockingLock.put(txOwner, oldVal + 1);
+					}
+									
 					
 					anchor.wait(MAX_TIME);
 					
@@ -353,8 +352,16 @@ class TplLockTable {
 				if (!xLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.xLocker = txNum;
-				Blocks.put(obj, false);
 				getObjectSet(txNum).add(obj);
+				
+				if (Blocks.get(obj) == null) {
+					Blocks.put(obj, false);
+				}
+				
+				if (FirstLockOwner.get(obj) == null) {
+					FirstLockOwner.put(obj, txNum);
+				}
+				
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
 			}
@@ -402,16 +409,16 @@ class TplLockTable {
 				while (!sixLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, SIX_LOCK);
 					lks.requestSet.add(txNum);
-					if (Blocks.get(obj) != null) {
-						if(Blocks.get(obj) ==  false)
-						{
-							Long txOwner = FirstLockOwner.get(obj);
-							int oldVal = TxBlockingLock.get(txOwner);
-							
-							Blocks.put(obj, true);
-							TxBlockingLock.put(txOwner, oldVal + 1);
-						}
+					
+					if(Blocks.get(obj) ==  false)
+					{
+						Long txOwner = FirstLockOwner.get(obj);
+						int oldVal = TxBlockingLock.get(txOwner);
+						
+						Blocks.put(obj, true);
+						TxBlockingLock.put(txOwner, oldVal + 1);
 					}
+					
 					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
@@ -424,8 +431,16 @@ class TplLockTable {
 				if (!sixLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.sixLocker = txNum;
-				Blocks.put(obj,false);
 				getObjectSet(txNum).add(obj);
+				
+				if (Blocks.get(obj) == null) {
+					Blocks.put(obj, false);
+				}
+				
+				if (FirstLockOwner.get(obj) == null) {
+					FirstLockOwner.put(obj, txNum);
+				}
+				
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
 			}
@@ -470,16 +485,16 @@ class TplLockTable {
 				while (!isLockable(lks, txNum) && !isSuccess) {
 					avoidDeadlock(lks, txNum, IS_LOCK);
 					lks.requestSet.add(txNum);
-					if (Blocks.get(obj) != null) {
-						if(Blocks.get(obj) ==  false)
-						{
-							Long txOwner = FirstLockOwner.get(obj);
-							int oldVal = TxBlockingLock.get(txOwner);
-							
-							Blocks.put(obj, true);
-							TxBlockingLock.put(txOwner, oldVal + 1);
-						}
+					
+					if(Blocks.get(obj) ==  false)
+					{
+						Long txOwner = FirstLockOwner.get(obj);
+						int oldVal = TxBlockingLock.get(txOwner);
+						
+						Blocks.put(obj, true);
+						TxBlockingLock.put(txOwner, oldVal + 1);
 					}
+					
 					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
@@ -492,8 +507,16 @@ class TplLockTable {
 				if (!isLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.isLockers.add(txNum);
-				Blocks.put(obj,false);
 				getObjectSet(txNum).add(obj);
+				
+				if (Blocks.get(obj) == null) {
+					Blocks.put(obj, false);
+				}
+				
+				if (FirstLockOwner.get(obj) == null) {
+					FirstLockOwner.put(obj, txNum);
+				}
+				
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
 			}
@@ -543,16 +566,16 @@ class TplLockTable {
 					lks.requestSet.add(txNum);
 					
 					anchor.wait(MAX_TIME);
-					if (Blocks.get(obj) != null) {
-						if(Blocks.get(obj) ==  false)
-						{
-							Long txOwner = FirstLockOwner.get(obj);
-							int oldVal = TxBlockingLock.get(txOwner);
-							
-							Blocks.put(obj, true);
-							TxBlockingLock.put(txOwner, oldVal + 1);
-						}
+					
+					if(Blocks.get(obj) ==  false)
+					{
+						Long txOwner = FirstLockOwner.get(obj);
+						int oldVal = TxBlockingLock.get(txOwner);
+						
+						Blocks.put(obj, true);
+						TxBlockingLock.put(txOwner, oldVal + 1);
 					}
+					
 					anchor.wait(MAX_TIME);
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
 						isSuccess = true;
@@ -565,8 +588,16 @@ class TplLockTable {
 				if (!ixLockable(lks, txNum))
 					throw new LockAbortException();
 				lks.ixLockers.add(txNum);
-				Blocks.put(obj,false);
 				getObjectSet(txNum).add(obj);
+				
+				if (Blocks.get(obj) == null) {
+					Blocks.put(obj, false);
+				}
+				
+				if (FirstLockOwner.get(obj) == null) {
+					FirstLockOwner.put(obj, txNum);
+				}
+				
 			} catch (InterruptedException e) {
 				throw new LockAbortException();
 			}
