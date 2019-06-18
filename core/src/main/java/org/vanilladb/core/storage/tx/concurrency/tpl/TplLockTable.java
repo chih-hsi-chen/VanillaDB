@@ -249,14 +249,17 @@ class TplLockTable {
 					avoidDeadlock(lks, txNum, S_LOCK);
 					lks.requestSet.add(txNum);
 					
-					if(Blocks.get(obj) ==  false)
-					{
-						Long txOwner = FirstLockOwner.get(obj);
-						int oldVal = TxBlockingLock.get(txOwner);
-						
-						Blocks.put(obj, true);
-						TxBlockingLock.put(txOwner, oldVal + 1);
-					}					
+					if(Blocks.get(obj) != null &&  FirstLockOwner.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}	
+					}
+									
 					anchor.wait(MAX_TIME);
 					
 					if (objectWaitThreadMap.get(anchor).element().getTxNum() == txNum) {
@@ -329,13 +332,15 @@ class TplLockTable {
 					avoidDeadlock(lks, txNum, X_LOCK);
 					lks.requestSet.add(txNum);
 					
-					if(Blocks.get(obj) ==  false)
-					{
-						Long txOwner = FirstLockOwner.get(obj);
-						int oldVal = TxBlockingLock.get(txOwner);
-						
-						Blocks.put(obj, true);
-						TxBlockingLock.put(txOwner, oldVal + 1);
+					if(Blocks.get(obj) != null &&  FirstLockOwner.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}	
 					}
 									
 					
@@ -410,13 +415,15 @@ class TplLockTable {
 					avoidDeadlock(lks, txNum, SIX_LOCK);
 					lks.requestSet.add(txNum);
 					
-					if(Blocks.get(obj) ==  false)
-					{
-						Long txOwner = FirstLockOwner.get(obj);
-						int oldVal = TxBlockingLock.get(txOwner);
-						
-						Blocks.put(obj, true);
-						TxBlockingLock.put(txOwner, oldVal + 1);
+					if(Blocks.get(obj) != null &&  FirstLockOwner.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}	
 					}
 					
 					anchor.wait(MAX_TIME);
@@ -486,13 +493,15 @@ class TplLockTable {
 					avoidDeadlock(lks, txNum, IS_LOCK);
 					lks.requestSet.add(txNum);
 					
-					if(Blocks.get(obj) ==  false)
-					{
-						Long txOwner = FirstLockOwner.get(obj);
-						int oldVal = TxBlockingLock.get(txOwner);
-						
-						Blocks.put(obj, true);
-						TxBlockingLock.put(txOwner, oldVal + 1);
+					if(Blocks.get(obj) != null &&  FirstLockOwner.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}	
 					}
 					
 					anchor.wait(MAX_TIME);
@@ -567,13 +576,15 @@ class TplLockTable {
 					
 					anchor.wait(MAX_TIME);
 					
-					if(Blocks.get(obj) ==  false)
-					{
-						Long txOwner = FirstLockOwner.get(obj);
-						int oldVal = TxBlockingLock.get(txOwner);
-						
-						Blocks.put(obj, true);
-						TxBlockingLock.put(txOwner, oldVal + 1);
+					if(Blocks.get(obj) != null &&  FirstLockOwner.get(obj) != null) {
+						if(Blocks.get(obj) ==  false)
+						{
+							Long txOwner = FirstLockOwner.get(obj);
+							int oldVal = TxBlockingLock.get(txOwner);
+							
+							Blocks.put(obj, true);
+							TxBlockingLock.put(txOwner, oldVal + 1);
+						}	
 					}
 					
 					anchor.wait(MAX_TIME);
