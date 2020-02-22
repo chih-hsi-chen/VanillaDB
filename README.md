@@ -37,3 +37,7 @@ Please hand in your final report to iLMS before the day you present your work. T
 You should prepare a presentation to summarize your work to us and all other students. We will give you more details about the presentation soon.
 
 The presentation will be in 6/17 (Mon.). However, if you wanted to get the scores as early as possible, you could present on 6/10 (Mon.). You can contact TAs for more information. Note that if you chose to present earlier, you should also hand in your report earlier.
+
+## Reference
+
+You can also see the original source: https://github.com/vanilladb/vanillacore
